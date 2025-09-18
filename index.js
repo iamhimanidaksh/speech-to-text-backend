@@ -12,7 +12,7 @@ const app = express();
 const corsOptions = {
   origin: [
     "http://localhost:3000", // React dev
-    "https://your-frontend-hosted.com", // 🔄 replace with actual deployed frontend domain
+    "https://speech-to-text-himani-web.netlify.app", // 🔄 replace with actual deployed frontend domain
   ],
   methods: ["GET", "POST", "DELETE"],
   credentials: true,
