@@ -1,4 +1,3 @@
-// backend/index.js
 const express = require("express");
 const cors = require("cors");
 const multer = require("multer");
@@ -12,8 +11,8 @@ const app = express();
 // Allow both localhost and deployed frontend
 const corsOptions = {
   origin: [
-    "http://localhost:3000",          // local React dev
-    "https://your-frontend-hosted.com" // replace with actual deployed frontend URL
+    "http://localhost:3000", // React dev
+    "https://your-frontend-hosted.com", // 🔄 replace with actual deployed frontend domain
   ],
   methods: ["GET", "POST", "DELETE"],
   credentials: true,
@@ -21,12 +20,15 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 
+// Multer → keep files in memory
 const upload = multer({ storage: multer.memoryStorage() });
+
+// Deepgram client
 const deepgram = createClient(process.env.DEEPGRAM_API_KEY);
 
-// Test route
+// ================= Test Route =================
 app.get("/", (req, res) => {
-  res.send("Hello from backend 🔊");
+  res.send("✅ Backend is running and ready 🔊");
 });
 
 // ================= Transcribe Route =================
@@ -34,6 +36,7 @@ app.post("/api/transcribe", upload.single("audio"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "No audio file uploaded" });
 
+    // Allowed audio formats
     const allowedTypes = [
       "audio/webm",
       "audio/webm;codecs=opus",
@@ -42,7 +45,9 @@ app.post("/api/transcribe", upload.single("audio"), async (req, res) => {
       "audio/m4a",
       "audio/ogg",
       "audio/3gpp",
+      "audio/mp4",
     ];
+
     if (!allowedTypes.includes(req.file.mimetype)) {
       return res.status(400).json({ error: `Invalid file type: ${req.file.mimetype}` });
     }
@@ -56,13 +61,14 @@ app.post("/api/transcribe", upload.single("audio"), async (req, res) => {
       transcript = result?.results?.channels?.[0]?.alternatives?.[0]?.transcript || "";
 
       if (!transcript.trim()) {
-        return res.status(400).json({ error: "No speech detected." });
+        return res.status(400).json({ error: "⚠️ No speech detected." });
       }
     } catch (err) {
       console.error("Deepgram API error:", err);
       return res.status(500).json({ error: "Error during transcription request." });
     }
 
+    // Save transcript to MongoDB
     const newDoc = new Transcript({ filename: req.file.originalname, transcript });
     await newDoc.save();
 
@@ -73,7 +79,7 @@ app.post("/api/transcribe", upload.single("audio"), async (req, res) => {
   }
 });
 
-// ================= Get History =================
+// ================= Get All Transcriptions =================
 app.get("/api/transcriptions", async (req, res) => {
   try {
     const all = await Transcript.find().sort({ createdAt: -1 });
@@ -84,12 +90,14 @@ app.get("/api/transcriptions", async (req, res) => {
   }
 });
 
-// ================= Delete Transcript =================
+// ================= Delete by ID =================
 app.delete("/api/transcriptions/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const deleted = await Transcript.findByIdAndDelete(id);
+
     if (!deleted) return res.status(404).json({ error: "Transcript not found" });
+
     res.json({ success: true, message: "Transcript deleted" });
   } catch (err) {
     console.error("Delete error:", err);
@@ -97,12 +105,13 @@ app.delete("/api/transcriptions/:id", async (req, res) => {
   }
 });
 
-// ================= Connect DB =================
+// ================= MongoDB =================
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB connected"))
   .catch((err) => console.error("MongoDB connection error:", err));
 
+// ================= Start Server =================
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
   console.log(`Backend running at: http://localhost:${PORT}`);
