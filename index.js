@@ -12,7 +12,7 @@ const app = express();
 const corsOptions = {
   origin: [
     "http://localhost:3000", // React dev
-    "https://speech-to-text-himani-web.netlify.app", // 🔄 replace with actual deployed frontend domain
+    "https://speech-to-text-himani-web.netlify.app", 
   ],
   methods: ["GET", "POST", "DELETE"],
   credentials: true,
@@ -28,7 +28,7 @@ const deepgram = createClient(process.env.DEEPGRAM_API_KEY);
 
 // ================= Test Route =================
 app.get("/", (req, res) => {
-  res.send("✅ Backend is running and ready 🔊");
+  res.send("Backend is running and ready");
 });
 
 // ================= Transcribe Route =================
@@ -104,6 +104,17 @@ app.delete("/api/transcriptions/:id", async (req, res) => {
     res.status(500).json({ error: "Failed to delete transcript" });
   }
 });
+
+app.delete("/api/transcriptions", async (req, res) => {
+    try {
+        await Transcript.deleteMany({});
+        res.json({ success: true, message: "All transcripts deleted" });
+    } catch (err) {
+        console.error("All delete error:", err);
+        res.status(500).json({ error: "Failed to clear all transcripts" });
+    }
+});
+
 
 // ================= MongoDB =================
 mongoose
