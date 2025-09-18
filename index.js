@@ -33,12 +33,15 @@ app.post("/api/transcribe", upload.single("audio"), async (req, res) => {
 
     // Allowed audio types (cover webm, wav, mp3, m4a, mp4)
     const allowedTypes = [
-      "audio/webm",
-      "audio/wav",
-      "audio/mp3",
-      "audio/m4a",
-      "audio/mp4",
-    ];
+  "audio/webm",
+  "audio/webm;codecs=opus",
+  "audio/wav",
+  "audio/mp3",
+  "audio/m4a",
+  "audio/ogg",
+  "audio/3gpp"
+];
+
 
     if (!allowedTypes.includes(req.file.mimetype)) {
       return res.status(400).json({
