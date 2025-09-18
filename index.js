@@ -53,7 +53,7 @@ app.post("/api/transcribe", upload.single("audio"), async (req, res) => {
     }
 
     const buffer = req.file.buffer;
-    const options = { model: "nova-3", smart_format: true, punctuate: true };
+    const options = { model: "nova-3", smart_format: true, punctuate: true, language: "en-US" };
 
     let transcript = "";
     try {
