@@ -1,23 +1,22 @@
 // backend/index.js
-
 const express = require("express");
 const cors = require("cors");
 const multer = require("multer");
-const { createClient } = require("@deepgram/sdk"); // Deepgram SDK
+const { createClient } = require("@deepgram/sdk");
 require("dotenv").config();
 const mongoose = require("mongoose");
 const Transcript = require("./models/transcription.js");
 
 const app = express();
 
-// Enable CORS so frontend (React) can talk to backend
+// Enable CORS + JSON
 app.use(cors());
 app.use(express.json());
 
-// Multer config  store uploaded files in memory (not disk)
+// Multer → store uploaded files in memory
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Deepgram client uses API key from .env
+// Deepgram client
 const deepgram = createClient(process.env.DEEPGRAM_API_KEY);
 
 // Test route
@@ -25,27 +24,33 @@ app.get("/", (req, res) => {
   res.send("Hello from backend 🔊");
 });
 
-// Route: Transcribe audio file
+// ================= Transcribe Route =================
 app.post("/api/transcribe", upload.single("audio"), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: "No audio file uploaded" });
     }
 
-    // Restrict file types → safer & avoids unsupported formats
-    const allowedTypes = ["audio/webm", "audio/wav", "audio/mp3", "audio/m4a"];
+    // Allowed audio types (cover webm, wav, mp3, m4a, mp4)
+    const allowedTypes = [
+      "audio/webm",
+      "audio/wav",
+      "audio/mp3",
+      "audio/m4a",
+      "audio/mp4",
+    ];
+
     if (!allowedTypes.includes(req.file.mimetype)) {
       return res.status(400).json({
-        error: "Invalid file type. Allowed: webm, wav, mp3, m4a",
+        error: `Invalid file type: ${req.file.mimetype}`,
       });
     }
 
-    // File buffer in memory
     const buffer = req.file.buffer;
 
-    // Deepgram transcription options
+    // Deepgram options
     const options = {
-      model: "nova-3", // latest, accurate model
+      model: "nova-3",
       smart_format: true,
       punctuate: true,
     };
@@ -53,7 +58,6 @@ app.post("/api/transcribe", upload.single("audio"), async (req, res) => {
     let transcript = "";
 
     try {
-      // Deepgram API call
       const { result } = await deepgram.listen.prerecorded.transcribeFile(
         buffer,
         options
@@ -63,25 +67,22 @@ app.post("/api/transcribe", upload.single("audio"), async (req, res) => {
         result?.results?.channels?.[0]?.alternatives?.[0]?.transcript || "";
 
       if (!transcript.trim()) {
-        return res
-          .status(400)
-          .json({ error: "No speech detected or transcription empty." });
+        return res.status(400).json({ error: "No speech detected." });
       }
     } catch (err) {
       console.error("Deepgram API error:", err);
       return res
         .status(500)
-        .json({ error: "Server error during transcription" });
+        .json({ error: "Error during transcription request." });
     }
 
-    // Save transcript in MongoDB
+    // Save in MongoDB
     const newDoc = new Transcript({
       filename: req.file.originalname,
       transcript,
     });
     await newDoc.save();
 
-    // Success response
     res.json({ success: true, transcript });
   } catch (err) {
     console.error("General error:", err);
@@ -89,7 +90,7 @@ app.post("/api/transcribe", upload.single("audio"), async (req, res) => {
   }
 });
 
-// Route: Get all transcripts (sorted by latest first)
+// ================= Get History =================
 app.get("/api/transcriptions", async (req, res) => {
   try {
     const all = await Transcript.find().sort({ createdAt: -1 });
@@ -100,7 +101,7 @@ app.get("/api/transcriptions", async (req, res) => {
   }
 });
 
-// Route: Delete a transcript by ID
+// ================= Delete Transcript =================
 app.delete("/api/transcriptions/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -117,13 +118,13 @@ app.delete("/api/transcriptions/:id", async (req, res) => {
   }
 });
 
-// MongoDB connection
+// ================= Connect DB =================
 mongoose
   .connect(process.env.MONGO_URI)
-  .then(() => console.log("MongoDB connected"))
+  .then(() => console.log("✅ MongoDB connected"))
   .catch((err) => console.error("MongoDB connection error:", err));
 
-// Start server
+// ================= Start Server =================
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
   console.log(`Backend running at: http://localhost:${PORT}`);
